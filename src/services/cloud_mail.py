@@ -354,14 +354,7 @@ class CloudMailService(BaseEmailService):
         Returns:
             验证码字符串，超时返回 None
         """
-        import sys
-        print(f"\n========== CloudMail.get_verification_code 被调用 ==========", flush=True)
-        print(f"邮箱: {email}", flush=True)
-        print(f"超时: {timeout}秒", flush=True)
-        sys.stdout.flush()
-        
         logger.info(f"正在从 Cloud Mail 邮箱 {email} 获取验证码...")
-        logger.info(f"OTP 发送时间: {otp_sent_at}, 超时: {timeout}秒, 正则: {pattern}")
 
         start_time = time.time()
         # 使用实例变量跨调用记录已处理的邮件ID
@@ -369,15 +362,10 @@ class CloudMailService(BaseEmailService):
             self._seen_email_ids[email] = set()
         seen_ids = self._seen_email_ids[email]
         check_count = 0
-        
-        print(f"[CloudMail] 已处理邮件数: {len(seen_ids)}, IDs: {list(seen_ids)}", flush=True)
-        sys.stdout.flush()
 
         while time.time() - start_time < timeout:
             try:
                 check_count += 1
-                print(f"[CloudMail] 第{check_count}次检查", flush=True)
-                sys.stdout.flush()
                 
                 # 查询邮件列表
                 url_path = "/api/public/emailList"
@@ -387,33 +375,15 @@ class CloudMailService(BaseEmailService):
                 }
 
                 result = self._make_request("POST", url_path, json=payload)
-                
-                print(f"[CloudMail] API响应: code={result.get('code')}", flush=True)
-                sys.stdout.flush()
 
                 if result.get("code") != 200:
-                    print(f"[CloudMail] API返回非200", flush=True)
-                    sys.stdout.flush()
                     time.sleep(3)
                     continue
 
                 emails = result.get("data", [])
                 if not isinstance(emails, list):
-                    print(f"[CloudMail] 邮件数据类型错误", flush=True)
-                    sys.stdout.flush()
                     time.sleep(3)
                     continue
-
-                print(f"[CloudMail] 收到 {len(emails)} 封邮件", flush=True)
-                sys.stdout.flush()
-                
-                # 打印所有邮件
-                for idx, email_item in enumerate(emails):
-                    eid = email_item.get("emailId")
-                    subj = str(email_item.get("subject", ""))[:30]
-                    is_seen = "已处理" if eid in seen_ids else "新邮件"
-                    print(f"[CloudMail]   {idx+1}. ID={eid} [{is_seen}] {subj}", flush=True)
-                sys.stdout.flush()
 
                 for email_item in emails:
                     email_id = email_item.get("emailId")
@@ -432,15 +402,11 @@ class CloudMailService(BaseEmailService):
                         seen_ids.add(email_id)
                         continue
 
-                    print(f"[CloudMail] 处理OpenAI邮件: ID={email_id}", flush=True)
-                    sys.stdout.flush()
-
                     # 从主题提取
                     match = re.search(pattern, subject)
                     if match:
                         code = match.group(1)
-                        print(f"[CloudMail] ✅ 找到验证码: {code}", flush=True)
-                        sys.stdout.flush()
+                        logger.info(f"从邮件 {email_id} 提取到验证码")
                         seen_ids.add(email_id)
                         self.update_status(True)
                         return code
